@@ -1,0 +1,260 @@
+---
+title: "HW. Advanced tidyverse "
+output: html_document
+---
+
+
+
+## Corpus of bilingual children's speech 
+Data: https://www.kaggle.com/rtatman/corpus-of-bilingual-childrens-speech?select=guide_to_files.csv
+
+The Paradis corpus consists of naturalistic language samples from 25 children learning English as a second language (English language learners or learners of English as an additional language). Participants in this study were children from newcomer (immigrant and refugee) families to Canada. The children started to learn English as a second language (L2) after their first language (L1) had been established.
+
+Variables:
+
+  - age_of_arrival_to_Canada_months 
+  
+  - age_of_English_exposure_months(the age of onset of English acquisition) 
+  
+  - age_at_recording_months
+  
+  - months_of_english
+
+
+## Import required libraries
+```{r}
+library(tidyverse)
+```
+
+## 1. Data 
+
+### 1.1 Read guide_to_files.csv and create 'biling_speech_data' dataframe
+
+```{r}
+biling_speech_data <- read_csv("data/guide_to_files.csv")
+```
+
+### 1.2 Use `'biling_speech_data'` dataframe and functions from tidyverse to answer the following questions:
+
+1. How many participants are mentioned in this dataframe? 24
+
+2. How many of them are males and females? F=8, M=16
+
+3. How many first languages are mentioned in the dataframe? 9
+
+
+```{r}
+biling_speech_data %>%
+  select(file_name) %>% 
+  tally()
+
+biling_speech_data %>%
+  count(gender)
+
+biling_speech_data %>%
+  distinct(first_language) %>% 
+  summarize(n=n())
+```
+
+## 2. Changing Data
+
+### 2.1 Choose all numeric columns from the dataframe using tidyselect. Check if there are NA in columns.  
+
+```{r}
+biling_speech_data %>% 
+  select(where(is.numeric)) %>% 
+  filter(is.na(.))
+```
+
+
+### 2.2 Convert all numerical data in the columns chosen before from months to years. Don't forget to save results in the dataframe! 
+
+```{r}
+convert2year <- function(x) round(x / 12, 3)
+
+biling_speech_data <- biling_speech_data %>% 
+  mutate(across(where(is.numeric), c(convert2year)))
+```
+
+### 2.3 Rename changed columns for convenience
+
+```{r}
+biling_speech_data <- biling_speech_data %>% 
+  rename_with(~ gsub("months", "years", .x, fixed = TRUE), ends_with('_1')) %>% 
+  rename_with(~ gsub("_1", "", .x, fixed = TRUE))
+```
+
+## 3. Analysis of Data
+
+### 3.1 Answer the questions below using advanced functions of tidyverse
+
+1. What is the average age of child migration to Canada? 
+
+```{r}
+biling_speech_data %>%
+  summarise(avg_migration_age_years = mean(age_of_arrival_to_Canada_years),
+            avg_migration_age_months = mean(age_of_arrival_to_Canada_months))
+```
+
+2. How many children whose first language is Spanish learnt English less than 10 month? How many of them are males and females?
+
+```{r}
+biling_speech_data %>%
+  filter(first_language == 'Spanish' & months_of_english < 10) %>% 
+  group_by(gender) %>% 
+  count()
+```
+
+3. What is the average age of children speaking the same first language at recording? What is the average migration age of children speaking the same first language?
+
+```{r}
+biling_speech_data %>%
+  group_by(first_language) %>% 
+  summarise(avg_age_at_recording_year = mean(age_at_recording_years),
+            avg_migration_age_year = mean(age_of_arrival_to_Canada_years),
+            avg_age_at_recording_months = mean(age_at_recording_months),
+            avg_mighration_months = mean(age_of_arrival_to_Canada_months))
+```
+
+
+### 3.2 Find out mean, min and max age of onset of English acquisition for female and male participants with the help of advanced functions of tidyverse. Add information about their first language. 
+
+```{r}
+biling_speech_data %>%
+  group_by(gender) %>%
+  summarize(across(c(age_of_English_exposure_years), c(avgerage = mean,
+                                                       minimum = min, 
+                                                       maximum = max)))
+```
+
+### 3.3 Sort the data alphabetically by the column 'first_language'.
+
+```{r}
+biling_speech_data %>%
+  arrange(first_language)
+``` 
+
+##When do children learn words?
+
+Data: https://www.kaggle.com/rtatman/when-do-children-learn-words?select=main_data.csv
+
+The main dataset includes information for 732 Norwegian words. A second table also includes measures of how frequently each word is used in Norwegian, both on the internet (as observed in the Norwegian Web as Corpus dataset) and when an adult is talking to a child.
+
+Main data necessary (!) variables:
+
+Translation: the English translation of the Norwegian word
+
+AoA: how old a child generally was when they learnt this word, in months
+
+VSoA: how many other words a child generally knows when they learn this word (rounded up to the nearest 10)
+
+Broad_lex: the broad part of speech of the word
+
+CDS_Freq: a measure of how commonly this word occurs when a Norwegian adult is talking to a Norwegian child
+
+Norwegian CDS Frequency necessary (!) variables:
+
+Translation: The English translation of the Norwegian word
+
+Freq_NoWaC: How often this word is used on the internet
+
+Freq_CDS: How often this word is used when talking to children (based on two Norwegian CHILDES corpora)
+
+NB! All the other columns should be deleted for your convenience. 
+
+NB!'Freq_CDS' and 'CDS_Freq' columns are the same. 
+
+## 4. Data 
+
+### 4.1 Read two tables 
+
+```{r}
+nor_words <- read_csv("data/main_data.csv", na=c("#N/A"))
+nor_freq <- read_csv("data/Norwegian_CDS_frequency.csv", na=c("#N/A"))
+```
+
+### 4.2 Leave only necessary columns
+
+```{r}
+nor_words <- nor_words %>% 
+  select(c('Translation', 'AoA', 'VSoA','Broad_lex', 'CDS_freq'))
+
+nor_freq <- nor_freq %>% 
+  select(c('Translation', 'Freq_NoWaC', 'Freq_CDS'))
+```
+
+### 4.3  Join two tables and create a new dataframe 'norw_words'. NB! There shouldn't be duplicates in your new dataframe. 
+
+```{r}
+# they are aligned, so it is an overkill to use join
+norw_words <-  nor_words %>% 
+  bind_cols(nor_freq %>% 
+              select(2))
+```
+
+### 4.4   Leave only 15 first rows
+ 
+```{r}
+norw_words <- norw_words %>% 
+  slice(1:15)
+```
+
+
+## 5. Experiments
+
+### 5.1  Create a tibble 'freq_statistics' using 3 columns: 'Translation', 'CDS_Freq', 'Freq_NoWaC'
+
+```{r}
+freq_statistics <- norw_words %>% 
+  select('Translation', 'CDS_freq', 'Freq_NoWaC')
+```
+Change the format of the tibble using the function tidyr::pivot_longer() or tidyr::pivot_wider().
+
+```{r}
+freq_statistics %>% 
+  pivot_longer(cols=CDS_freq:Freq_NoWaC,
+               names_to='freq_type',
+               values_to='freq')
+```
+
+### 5.2  Get a string vector output with information about classes in the tibble. 
+
+```{r}
+str(freq_statistics)
+```
+
+ Present the same information as a dataframe. 
+
+```{r}
+freq_statistics %>% 
+  summarize(Translation = class(Translation),
+            CDS_freq = class(CDS_freq),
+            Freq_NoWaC = class(Freq_NoWaC))
+```
+
+### 5.3  Convert values from 'CDS_Freq' & 'Freq_NoWaC' to numeric ones. 
+
+```{r}
+# they are already numeric
+freq_statistics %>% 
+  summarize(Translation = is.numeric(Translation),
+            CDS_freq = is.numeric(CDS_freq),
+            Freq_NoWaC = is.numeric(Freq_NoWaC))
+```
+Get average values of all numeric classes in 'norw_words'.
+
+```{r}
+norw_words %>% 
+  summarise(across(where(is.numeric),
+                   list(average=mean),
+                   na.rm=TRUE))
+```
+
+### 5.4   Create a nested table (by 'Translation')
+ 
+```{r}
+nested_freq_statistics <- freq_statistics %>% 
+  group_by(Translation) %>% 
+  nest()
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
